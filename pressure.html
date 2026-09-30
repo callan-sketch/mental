@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pressure climb · Competition Mindset</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Barlow+Condensed:wght@500;600;700&display=swap">
+<link rel="stylesheet" href="assets/app.css">
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <a class="back" href="index.html">‹ Home</a>
+    <span class="sync" id="sync">Saved on this phone</span>
+  </header>
+  <main id="view"></main>
+</div>
+<nav class="tabs" aria-label="Main">
+  <div class="in">
+    <a href="index.html">Home</a>
+    <a href="session.html">Session</a>
+    <a href="pressure.html" aria-current="page">Pressure</a>
+  </div>
+</nav>
+
+<script src="assets/app.js"></script>
+<script>
+(function () {
+  if (!CM.requireUser()) return;
+  const S = CM.state, esc = CM.esc, view = document.getElementById("view");
+  const young = CM.isYoung();
+  const sessionId = new URLSearchParams(location.search).get("session") || "";
+  const lastSession = S.sessions.find(s => s.id === sessionId);
+
+  // Week 1 version of the log. Later weeks add steps (dial, noise, cue, imagery, RESET, decisions).
+  let d;
+  function fresh() {
+    d = { id: CM.newId("p"), date: CM.today(), week: CM.currentWeek(), sessionId,
+      context: lastSession && ["Bouldering", "Lead"].includes(lastSession.type) ? lastSession.type : "",
+      situation: "", note: "", thought: "", emotion: [], intensity: null, body: [], behaviour: [], result: "", handled: null, different: "", young };
+  }
+  fresh();
+
+  const full = [
+    { link: 0, render: d => `<p class="q">What happened? Pick your pressure moment.</p>
+        <div class="field"><span class="label">Discipline</span>${CM.chips("context", OPTS.context, d.context)}</div>
+        <div class="field"><span class="label">The moment</span>${CM.chips("situation", OPTS.situation, d.situation)}</div>
+        ${CM.text("note", d.note, { placeholder: "Optional: which climb?" })}`,
+      valid: d => !d.context ? "Pick bouldering or lead." : d.situation ? true : "Pick what happened." },
+    { link: 1, render: d => `<p class="q">What did you tell yourself?</p><p class="hint">Write the exact words, e.g. “Don't fall”.</p>
+        ${CM.text("thought", d.thought, { area: true, placeholder: "In my head I said…" })}`,
+      valid: d => (d.thought || "").trim() ? true : "Write what you told yourself." },
+    { link: 2, render: d => `<p class="q">What did you feel?</p>${CM.chips("emotion", OPTS.emotion, d.emotion, true)}
+        <span class="label">How strong was it?</span>${CM.scale("intensity", d.intensity, 0, 10, "0 · not at all", "10 · extremely")}`,
+      valid: d => !d.emotion.length ? "Pick at least one feeling." : d.intensity == null ? "Rate how strong it was." : true },
+    { link: 3, render: d => `<p class="q">What did you notice in your body?</p>${CM.chips("body", OPTS.body, d.body, true)}`,
+      valid: () => true },
+    { link: 4, render: d => `<p class="q">What did you do?</p>${CM.chips("behaviour", OPTS.behaviour, d.behaviour, true)}`,
+      valid: d => d.behaviour.length ? true : "Pick at least one." },
+    { link: 5, render: d => `<p class="q">What happened in the end?</p>${CM.chips("result", OPTS.result, d.result)}
+        <span class="label">How well did you handle the pressure?</span>${CM.scale("handled", d.handled, 1, 5, "1 · it ran me", "5 · I handled it")}
+        <div class="field"><label for="f-different">One thing you'd do differently (optional)</label>${CM.text("different", d.different, { area: true, placeholder: "Next time I'll…" })}</div>`,
+      valid: d => !d.result ? "Pick what happened." : d.handled ? true : "Rate how you handled it." }
+  ];
+
+  const simple = [
+    { link: 0, render: d => `<p class="q">What happened?</p>
+        <div class="field"><span class="label">Discipline</span>${CM.chips("context", OPTS.context, d.context)}</div>
+        ${CM.chips("situation", OPTS.situation, d.situation)}`,
+      valid: d => !d.context ? "Pick bouldering or lead." : d.situation ? true : "Pick what happened." },
+    { link: 1, render: d => `<p class="q">What did you tell yourself?</p>
+        ${CM.chips("thoughtPick", OPTS.youngThought, d.thoughtPick)}
+        ${CM.text("thought", d.thought, { placeholder: "Or write your own" })}`,
+      valid: d => (d.thoughtPick || (d.thought || "").trim()) ? true : "Pick or write what you told yourself." },
+    { link: 2, render: d => `<p class="q">What did you do?</p>${CM.chips("behaviour", OPTS.youngDid, d.behaviour, true)}
+        <span class="label">What happened in the end?</span>${CM.chips("result", OPTS.result, d.result)}`,
+      valid: d => !d.behaviour.length ? "Pick at least one." : d.result ? true : "Pick what happened." }
+  ];
+
+  function start() {
+    view.innerHTML = `<div class="stack" style="gap:6px"><h3>Task 5 · One pressure climb per session</h3><h1>Pressure climb</h1>
+      <p class="lede">Pick the climb from today's session where you felt the most pressure. No pressure today? Next time, try to flash a set or ask a friend to watch.</p></div>
+      <div id="form" class="stack" style="gap:18px"></div>`;
+    CM.stepper({
+      root: document.getElementById("form"),
+      getDraft: () => d,
+      chainLinks: young ? ["Happened", "Thought", "Did"] : OPTS.links,
+      steps: young ? simple : full,
+      finishLabel: "Save climb",
+      onFinish() {
+        if (young && !(d.thought || "").trim()) d.thought = d.thoughtPick;
+        d.savedAt = new Date().toISOString();
+        CM.addEntry("pressure", d);
+        CM.toast("Climb saved");
+        done();
+      }
+    });
+  }
+
+  function done() {
+    const n = S.pressure.filter(e => e.week === d.week).length;
+    view.innerHTML = `<div class="stack" style="gap:6px"><h3>Saved</h3><h1>Climb logged</h1>
+      <p class="lede">That's ${n} pressure climb${n === 1 ? "" : "s"} this week.</p></div>
+      <div class="card"><span class="quote">“${esc(d.thought)}”</span>
+        <span class="hint">${esc(d.situation)} → ${esc(d.behaviour.join(", "))} → ${esc(d.result)}</span></div>
+      <button class="btn primary block" type="button" id="again">Log another climb</button>
+      <a class="btn ghost block" href="index.html">Back to home</a>`;
+    document.getElementById("again").addEventListener("click", () => { fresh(); start(); window.scrollTo(0, 0); });
+  }
+
+  start();
+})();
+</script>
+</body>
+</html>

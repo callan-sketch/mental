@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Week 1 · Competition Mindset</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Barlow+Condensed:wght@500;600;700&display=swap">
+<link rel="stylesheet" href="assets/app.css">
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <a class="back" href="index.html">‹ Home</a>
+    <span class="pill">Week 1</span>
+    <span class="sync" id="sync">Saved on this phone</span>
+  </header>
+  <main id="view"></main>
+</div>
+<nav class="tabs" aria-label="Main">
+  <div class="in">
+    <a href="index.html">Home</a>
+    <a href="session.html">Session</a>
+    <a href="pressure.html">Pressure</a>
+  </div>
+</nav>
+
+<script src="assets/app.js"></script>
+<script>
+(function () {
+  const U = CM.requireUser(); if (!U) return;
+  const S = CM.state, esc = CM.esc, view = document.getElementById("view");
+
+  /* ================= Task 1: onboarding + Competition Profile ================= */
+  function onboarding() {
+    const d = JSON.parse(JSON.stringify(S.profile));
+    d.name = d.name || U.name;
+    d.cp = d.cp || {};
+    d.cp.ratings = d.cp.ratings || {};
+    d.cp.thoughts = d.cp.thoughts || ["", "", ""];
+    d.consent = d.consent || {};
+    const young = () => d.ageBand === "12-14";
+    const minor = () => d.ageBand === "12-14" || d.ageBand === "15-17";
+
+    view.innerHTML = `<div class="stack" style="gap:6px"><h3>Task 1 · Set up the app</h3><h1>Your profile</h1>
+      <p class="lede">There are no right or wrong answers. The more honest you are, the more useful this gets.</p></div>
+      <div id="form" class="stack" style="gap:18px"></div>`;
+
+    const ratingItems = [["nervous", "Nervous"], ["excited", "Excited"], ["worryResult", "Worried about the result"], ["worryFalling", "Worried about falling"], ["confident", "Confident"]];
+
+    CM.stepper({
+      root: document.getElementById("form"),
+      getDraft: () => d,
+      finishLabel: "Finish setup",
+      steps: [
+        {
+          render: d => `<p class="q">About you</p>
+            <div class="field"><label for="f-name">Your name</label>${CM.text("name", d.name)}</div>
+            <div class="field"><span class="label">Age group</span>${CM.chips("ageBand", OPTS.ageBand, d.ageBand)}</div>
+            <div class="field"><span class="label">What do you compete in?</span>${CM.chips("disciplines", OPTS.disciplines, d.disciplines, true)}</div>
+            <div class="field"><label for="f-nextComp-name">Next competition</label>${CM.text("nextComp.name", d.nextComp && d.nextComp.name, { placeholder: "e.g. Youth Nationals" })}</div>
+            <div class="field"><label for="f-nextComp-date">Date</label>${CM.text("nextComp.date", d.nextComp && d.nextComp.date, { type: "date" })}</div>`,
+          valid: d => !(d.name || "").trim() ? "Add your name." : !d.ageBand ? "Pick your age group." : !(d.disciplines || []).length ? "Pick at least one discipline." : true
+        },
+        {
+          render: d => `<p class="q">Your data</p>
+            <p class="hint">Your entries are saved on this phone and sent to Core so your programme can be reviewed and improved. They're not shared publicly.</p>
+            ${CM.checkbox("consent.athlete", d.consent.athlete, "I understand how my entries are stored and used.")}
+            ${minor() ? `<hr style="border:0;border-top:1px solid var(--line);width:100%">
+              <p class="hint">Because you're under 18, a parent or guardian needs to agree too.</p>
+              <div class="field"><label for="f-consent-parentName">Parent or guardian name</label>${CM.text("consent.parentName", d.consent.parentName)}</div>
+              ${CM.checkbox("consent.parent", d.consent.parent, "I'm this athlete's parent or guardian and I agree to them using the app.")}` : ""}`,
+          valid: d => !d.consent.athlete ? "Tick the box to continue." : minor() && (!(d.consent.parentName || "").trim() || !d.consent.parent) ? "A parent or guardian needs to add their name and agree." : true
+        },
+        {
+          render: d => `<p class="q">Before I compete, I usually…</p><p class="hint">Tick everything that fits.</p>
+            <div class="field"><span class="label">Feel</span>${CM.chips("cp.feel", OPTS.cpFeel, d.cp.feel, true)}</div>
+            <div class="field"><span class="label">Think</span>${CM.chips("cp.think", OPTS.cpThink, d.cp.think, true)}</div>
+            <div class="field"><span class="label">Do</span>${CM.chips("cp.do", OPTS.cpDo, d.cp.do, true)}</div>`,
+          valid: d => ((d.cp.feel || []).length + (d.cp.think || []).length + (d.cp.do || []).length) ? true : "Tick at least one."
+        },
+        {
+          when: () => !young(),
+          render: d => `<p class="q">How strongly do you feel these before a competition?</p><p class="hint">0 = not at all, 10 = extremely.</p>
+            ${ratingItems.map(([k, l]) => `<div class="field"><span class="label">${l}</span>${CM.scale("cp.ratings." + k, d.cp.ratings[k])}</div>`).join("")}`,
+          valid: d => ratingItems.every(([k]) => typeof d.cp.ratings[k] === "number") ? true : "Rate all five."
+        },
+        {
+          render: d => `<p class="q">What does your mind tell you before you climb?</p>
+            <p class="hint">Write the exact words, e.g. “Don't fall”, “I have to top this”, “They're all better than me”.</p>
+            ${[0, 1, 2].map(k => `<div class="field"><label for="f-t${k}">Thought ${k + 1}${k ? " (optional)" : ""}</label>${CM.text("cp.thoughts." + k, d.cp.thoughts[k], { id: "f-t" + k })}</div>`).join("")}`,
+          valid: d => (d.cp.thoughts[0] || "").trim() ? true : "Write at least one thought."
+        },
+        {
+          when: () => !young(),
+          render: d => `<p class="q">Your best and hardest competitions</p>
+            <div class="field"><label for="f-cp-best">My best competition</label><small class="hint">Which one? How did you feel beforehand? What did you do differently?</small>${CM.text("cp.best", d.cp.best, { area: true })}</div>
+            <div class="field"><label for="f-cp-hardest">My hardest competition</label><small class="hint">Which one? How did you feel? What happened?</small>${CM.text("cp.hardest", d.cp.hardest, { area: true })}</div>
+            <div class="field"><label for="f-cp-difference">The biggest difference between the two was…</label>${CM.text("cp.difference", d.cp.difference, { area: true })}</div>`,
+          valid: () => true
+        }
+      ],
+      onFinish() {
+        const was = !!S.profile.onboarded;
+        d.cp.thoughts = d.cp.thoughts.map(t => (t || "").trim());
+        d.onboarded = true;
+        d.onboardedAt = d.onboardedAt || new Date().toISOString();
+        d.startDate = d.startDate || CM.today();
+        S.profile = d;
+        if (!S.goals.comp && d.nextComp && d.nextComp.name) { S.goals.comp = d.nextComp.name; S.goals.compDate = d.nextComp.date || ""; }
+        CM.save(); CM.saveProfile();
+        CM.toast(was ? "Profile updated" : "Profile saved");
+        location.hash = "#done-onboarding";
+      }
+    });
+  }
+
+  /* ================= Task 2: goals ================= */
+  function goals() {
+    const young = CM.isYoung();
+    const g = S.goals;
+    if (!g.comp && S.profile.nextComp) { g.comp = S.profile.nextComp.name || ""; g.compDate = S.profile.nextComp.date || ""; }
+    const checks = k => `<div class="stack" style="gap:6px">
+      ${CM.checkbox(k + "Ctrl", g[k + "Ctrl"], "100% in my control")}
+      ${CM.checkbox(k + "See", g[k + "See"], "Someone watching could tell whether I did it")}</div>`;
+    view.innerHTML = `<div class="stack" style="gap:6px"><h3>Task 2 · Set your goals</h3><h1>Your goals</h1>
+      <p class="lede">Turn the result you want into things you control on the day. Practise your process goals in every session this week.</p></div>
+      <form id="form" class="card" novalidate>
+        <div class="field"><label for="f-comp">Next competition</label>${CM.text("comp", g.comp, { placeholder: "Name" })}</div>
+        <div class="field"><label for="f-compDate">Date</label>${CM.text("compDate", g.compDate, { type: "date" })}</div>
+        <hr style="border:0;border-top:1px solid var(--line);width:100%">
+        <div class="field"><label for="f-outcome">Outcome goal</label><small class="hint">The result I want, e.g. “Make finals”.</small>${CM.text("outcome", g.outcome)}</div>
+        ${young ? "" : `<div class="field"><label for="f-performance">Performance goal</label><small class="hint">My own level, e.g. “Flash 2 of 5 in qualifiers”.</small>${CM.text("performance", g.performance)}</div>`}
+        <div class="field"><label for="f-p1">Process goal${young ? "" : " 1"}</label><small class="hint">Something I will do, e.g. “Read every boulder fully before I pull on”.</small>${CM.text("p1", g.p1)}</div>
+        ${checks("p1")}
+        ${young ? "" : `<div class="field"><label for="f-p2">Process goal 2</label><small class="hint">e.g. “One slow breath before every attempt”.</small>${CM.text("p2", g.p2)}</div>${checks("p2")}`}
+        <p class="err" id="goal-err" role="alert"></p>
+        <button class="btn primary block" type="submit">Save goals</button>
+      </form>`;
+    const form = document.getElementById("form");
+    CM.bind(form, () => g);
+    form.addEventListener("submit", ev => {
+      ev.preventDefault();
+      const e = document.getElementById("goal-err");
+      if (!(g.outcome || "").trim() || !(g.p1 || "").trim() || (!young && (!(g.performance || "").trim() || !(g.p2 || "").trim()))) {
+        e.textContent = young ? "Add an outcome goal and a process goal." : "Fill in all four goals."; return;
+      }
+      const unchecked = ["p1"].concat(young ? [] : ["p2"]).some(k => !g[k + "Ctrl"] || !g[k + "See"]);
+      e.textContent = "";
+      g.savedAt = new Date().toISOString();
+      CM.save(); CM.saveGoals();
+      CM.toast("Goals saved");
+      if (unchecked) {
+        e.style.color = "var(--warn)";
+        e.textContent = "Saved. If a process goal fails either check, try rewording it so it's fully in your control and easy to see.";
+      } else setTimeout(() => location.href = "index.html", 700);
+    });
+  }
+
+  /* ================= Task 3: comp video breakdown ================= */
+  function breakdown() {
+    const young = CM.isYoung();
+    const d = JSON.parse(JSON.stringify(S.breakdown || {}));
+    d.source = d.source || "";
+    const L = OPTS.links;
+    const prompts = {
+      situation: ["Situation", "What was happening? Which climb, which round, what was at stake?"],
+      thought: ["Thought", "What were you telling yourself? Write the exact words if you can."],
+      emotion: ["Emotion", "What did you feel?"],
+      body: ["Body", "What did you notice in your body? Breathing, grip, tension, legs."],
+      behaviour: ["Behaviour", "What did you do? Watch the video closely: pace, reading, commitment."],
+      result: ["Result", "What happened in the end?"]
+    };
+    const youngKeys = ["situation", "thought", "behaviour"];
+    const keys = young ? youngKeys : Object.keys(prompts);
+    const youngLabel = { situation: "What happened?", thought: "What did I think?", behaviour: "What did I do?" };
+
+    view.innerHTML = `<div class="stack" style="gap:6px"><h3>Task 3 · Break down your comp video</h3><h1>Where could you step in?</h1>
+      <p class="lede">Pick an attempt from a recent competition that didn't go the way you wanted. Watch it, then go through the chain one link at a time.</p></div>
+      <div id="form" class="stack" style="gap:18px"></div>`;
+
+    const steps = [{
+      render: d => `<p class="q">Which attempt are you breaking down?</p>
+        <div class="field"><span class="label">I'm using</span>${CM.chips("source", ["A video", "A moment I remember"], d.source)}</div>
+        <div class="field"><label for="f-comp">Competition and climb</label>${CM.text("comp", d.comp, { placeholder: "e.g. Regionals, qualifier boulder 3" })}</div>`,
+      valid: d => !d.source ? "Pick video or memory." : (d.comp || "").trim() ? true : "Name the competition and climb."
+    }].concat(keys.map((k, idx) => ({
+      link: idx,
+      render: d => `<p class="q">${young ? youngLabel[k] : prompts[k][0]}</p><p class="hint">${prompts[k][1]}</p>${CM.text(k, d[k], { area: true })}`,
+      valid: d => (d[k] || "").trim() ? true : "Write something for this link, even a few words."
+    }))).concat([{
+      render: d => `<p class="q">Where could you have stepped in?</p>
+        <p class="hint">Pick the link that would have been easiest to change.</p>
+        ${CM.chips("stepIn", young ? keys.map(k => youngLabel[k].replace("?", "")) : L, d.stepIn)}
+        <div class="field"><label for="f-different">What could you have thought or done differently there?</label>${CM.text("different", d.different, { area: true })}</div>
+        ${young ? "" : `<div class="field"><label for="f-changed">If that had happened, how might the result have changed?</label>${CM.text("changed", d.changed, { area: true })}</div>`}`,
+      valid: d => !d.stepIn ? "Pick a link." : (d.different || "").trim() ? true : "Write what you'd do differently."
+    }]);
+
+    CM.stepper({
+      root: document.getElementById("form"),
+      getDraft: () => d,
+      chainLinks: young ? ["Happened", "Thought", "Did"] : L,
+      finishLabel: "Save breakdown",
+      steps,
+      onFinish() {
+        d.completedAt = d.completedAt || new Date().toISOString();
+        d.updatedAt = new Date().toISOString();
+        S.breakdown = d; CM.save(); CM.saveBreakdown();
+        CM.toast("Breakdown saved");
+        setTimeout(() => location.href = "index.html", 700);
+      }
+    });
+  }
+
+  /* ================= overview + routing ================= */
+  function overview() {
+    const tasks = CM.weekTasks(1);
+    view.innerHTML = `<div class="stack" style="gap:6px"><h3>Week 1</h3><h1>Your competition brain</h1></div>
+      <div class="tasks">${tasks.map(t => `<a class="task ${t.done ? "done" : ""}" href="${t.href}">
+        <span class="num">${t.done ? "✓" : t.n}</span><span class="t"><b>${esc(t.title)}</b><small>${esc(t.sub)}</small></span>
+        ${t.count ? `<span class="count">${t.count}</span>` : `<span class="go" aria-hidden="true">›</span>`}</a>`).join("")}</div>`;
+  }
+  function doneOnboarding() {
+    view.innerHTML = `<div class="stack" style="gap:6px"><h3>Task 1 done</h3><h1>You're set up</h1>
+      <p class="lede">Next, set your goals for this week. You can edit your profile any time from this page.</p></div>
+      <a class="btn primary block" href="#goals">Set my goals</a>
+      <a class="btn ghost block" href="index.html">Back to home</a>
+      <a class="btn ghost block" href="#onboarding">Edit my profile</a>`;
+  }
+  function route() {
+    const h = location.hash.replace("#", "");
+    window.scrollTo(0, 0);
+    if (h === "onboarding") return onboarding();
+    if (h === "goals") return goals();
+    if (h === "breakdown") return breakdown();
+    if (h === "done-onboarding") return doneOnboarding();
+    overview();
+  }
+  window.addEventListener("hashchange", route);
+  route();
+})();
+</script>
+</body>
+</html>

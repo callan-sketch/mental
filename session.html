@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Session · Competition Mindset</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Barlow+Condensed:wght@500;600;700&display=swap">
+<link rel="stylesheet" href="assets/app.css">
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <a class="back" href="index.html">‹ Home</a>
+    <span class="sync" id="sync">Saved on this phone</span>
+  </header>
+  <main id="view"></main>
+</div>
+<nav class="tabs" aria-label="Main">
+  <div class="in">
+    <a href="index.html">Home</a>
+    <a href="session.html" aria-current="page">Session</a>
+    <a href="pressure.html">Pressure</a>
+  </div>
+</nav>
+
+<script src="assets/app.js"></script>
+<script>
+(function () {
+  if (!CM.requireUser()) return;
+  const S = CM.state, esc = CM.esc, view = document.getElementById("view");
+  const g = S.goals;
+  const goalList = [["p1", g.p1], ["p2", g.p2]].filter(x => (x[1] || "").trim());
+
+  let d, err = "";
+  function fresh() { d = { id: CM.newId("s"), date: CM.today(), week: CM.currentWeek(), type: "", rating: null, goals: {}, note: "" }; }
+  fresh();
+
+  function render() {
+    view.innerHTML = `<div class="stack" style="gap:6px"><h3>Task 4 · Assess every session</h3><h1>How did today go?</h1>
+      <p class="lede">About a minute. Do it straight after training.</p></div>
+      <form id="form" class="stack" style="gap:18px" novalidate>
+        <div class="field"><label for="f-date">Date</label>${CM.text("date", d.date, { type: "date" })}</div>
+        <div class="field"><span class="label">Session type</span>${CM.chips("type", OPTS.sessionType, d.type)}</div>
+        <div class="field"><span class="label">How did the session go overall?</span>${CM.scale("rating", d.rating, 1, 5, "1 · rough", "5 · great")}</div>
+        <div class="field"><span class="label">Did you stick to your process goals?</span>
+          ${goalList.length ? goalList.map(([k, txt]) => `<div class="stack" style="gap:6px"><span class="hint">${esc(txt)}</span>${CM.chips("goals." + k, OPTS.goalDone, d.goals[k])}</div>`).join("")
+            : `<p class="hint">You haven't set process goals yet. <a href="module1.html#goals">Set them now</a>.</p>`}
+        </div>
+        <div class="field"><label for="f-note">Anything to note? (optional)</label>${CM.text("note", d.note, { area: true, placeholder: "e.g. Tired from school, but read every climb properly" })}</div>
+        ${err ? `<p class="err" role="alert">${esc(err)}</p>` : ""}
+        <button class="btn primary block" type="submit">Save session</button>
+      </form>`;
+  }
+
+  function saved() {
+    view.innerHTML = `<div class="stack" style="gap:6px"><h3>Saved</h3><h1>Session logged</h1>
+      <p class="lede">Now log the climb from this session where you felt the most pressure.</p></div>
+      <a class="btn primary block" href="pressure.html?session=${encodeURIComponent(d.id)}">Log my pressure climb</a>
+      <a class="btn ghost block" href="index.html">Back to home</a>`;
+  }
+
+  CM.bind(view, () => d, () => { err = ""; render(); });
+  view.addEventListener("submit", ev => {
+    ev.preventDefault();
+    if (!d.type) err = "Pick a session type.";
+    else if (!d.rating) err = "Rate the session.";
+    else if (goalList.some(([k]) => !d.goals[k])) err = "Answer each process goal.";
+    else err = "";
+    if (err) return render();
+    d.goalText = Object.fromEntries(goalList);
+    d.savedAt = new Date().toISOString();
+    CM.addEntry("sessions", d);
+    CM.toast("Session saved");
+    saved();
+  });
+  render();
+})();
+</script>
+</body>
+</html>

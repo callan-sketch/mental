@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sign in · Competition Mindset</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Barlow+Condensed:wght@500;600;700&display=swap">
+<link rel="stylesheet" href="assets/app.css">
+<style>
+  .login{min-height:100vh;display:flex;flex-direction:column;justify-content:center;gap:28px;padding-block:40px}
+  .mark{font:700 44px/.95 var(--display);text-transform:uppercase;letter-spacing:.01em;margin:0}
+  .mark span{color:var(--accent)}
+  .dev{border-style:dashed}
+  .or{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:13px}
+  .or::before,.or::after{content:"";flex:1;height:1px;background:var(--line)}
+</style>
+</head>
+<body>
+<div class="app no-tabs">
+  <main class="login">
+    <div class="stack">
+      <span class="pill" style="align-self:flex-start">Core</span>
+      <h1 class="mark">Competition<br><span>Mindset</span></h1>
+      <p class="lede">An 8-week mental skills programme for competition climbers. Watch the week's video, do the tasks, log your climbs.</p>
+    </div>
+
+    <section class="card" aria-labelledby="signin-h">
+      <h3 id="signin-h">Sign in</h3>
+      <div class="field"><label for="email">Email</label><input type="email" id="email" autocomplete="email" disabled></div>
+      <div class="field"><label for="password">Password</label><input type="password" id="password" autocomplete="current-password" disabled></div>
+      <button class="btn dark block" type="button" disabled>Sign in</button>
+      <p class="hint">Email sign-in is being set up and isn't available yet.</p>
+    </section>
+
+    <div class="or">for testing</div>
+
+    <section class="card dev" aria-labelledby="dev-h">
+      <h3 id="dev-h">Developer mode</h3>
+      <p class="hint">Creates a test athlete on this device. Entries are saved on this phone and, if sync is set up, sent to the test sheet.</p>
+      <div class="field"><label for="dev-name">Test athlete name</label><input type="text" id="dev-name" placeholder="e.g. Test Athlete" autocomplete="off"></div>
+      <button class="btn primary block" type="button" id="dev-go">Continue in developer mode</button>
+    </section>
+  </main>
+</div>
+<script src="assets/app.js"></script>
+<script>
+  if (CM.user()) location.replace("index.html");
+  document.getElementById("dev-go").addEventListener("click", () => {
+    CM.devLogin(document.getElementById("dev-name").value.trim());
+    location.href = "index.html";
+  });
+</script>
+</body>
+</html>

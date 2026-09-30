@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Competition Mindset</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Barlow+Condensed:wght@500;600;700&display=swap">
+<link rel="stylesheet" href="assets/app.css">
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <a class="brand" href="index.html"><b>Mindset</b><span class="pill" id="wk-pill">Week 1</span></a>
+    <span class="sync" id="sync">Saved on this phone</span>
+  </header>
+  <main id="view"></main>
+</div>
+<nav class="tabs" aria-label="Main">
+  <div class="in">
+    <a href="index.html" aria-current="page">Home</a>
+    <a href="session.html">Session</a>
+    <a href="pressure.html">Pressure</a>
+  </div>
+</nav>
+
+<script src="assets/app.js"></script>
+<script>
+(function () {
+  const U = CM.requireUser(); if (!U) return;
+  const S = CM.state, esc = CM.esc;
+  const week = CM.currentWeek();
+  const buildWeek = 1; // weeks available in this build
+  const shownWeek = Math.min(week, buildWeek);
+  document.getElementById("wk-pill").textContent = "Week " + shownWeek;
+
+  function videoBlock() {
+    const id = CONFIG.VIDEOS[shownWeek];
+    const watched = S.progress["w" + shownWeek + "Video"];
+    const player = id
+      ? `<div class="video"><iframe src="https://www.youtube-nocookie.com/embed/${esc(id)}?rel=0&modestbranding=1" title="Week ${shownWeek} video" allow="accelerometer; encrypted-media; gyroscope; picture-in-picture; fullscreen" allowfullscreen></iframe></div>`
+      : `<div class="video"><div class="ph">Week ${shownWeek} video<br>coming soon</div></div>`;
+    return `<section class="card">
+      <div class="stack" style="gap:4px"><h3>Week ${shownWeek} video</h3><h2>${esc(WEEKS[shownWeek - 1].title)}</h2></div>
+      ${player}
+      <p class="hint">Watch it now, then again before each training session this week.</p>
+      <div class="row">
+        ${watched ? `<span class="tag" style="border-color:var(--good);color:var(--good)">Watched</span>` :
+        `<button class="btn dark small" type="button" data-act="watched">I've watched it</button>`}
+      </div>
+    </section>`;
+  }
+
+  function taskList() {
+    const tasks = CM.weekTasks(shownWeek);
+    const done = tasks.filter(t => t.done).length;
+    return `<section class="stack">
+      <div class="row" style="justify-content:space-between"><h3>Your five jobs this week</h3><span class="hint">${done} of 5 done</span></div>
+      <div class="tasks">${tasks.map(t => `
+        <a class="task ${t.done ? "done" : ""}" href="${t.href}">
+          <span class="num">${t.done ? "✓" : t.n}</span>
+          <span class="t"><b>${esc(t.title)}</b><small>${esc(t.sub)}</small></span>
+          ${t.count ? `<span class="count">${t.count}</span>` : `<span class="go" aria-hidden="true">›</span>`}
+        </a>`).join("")}
+      </div>
+    </section>`;
+  }
+
+  function recent() {
+    const items = [
+      ...S.sessions.map(e => ({ ...e, kind: "session" })),
+      ...S.pressure.map(e => ({ ...e, kind: "pressure" }))
+    ].sort((a, b) => (b.date + b.id).localeCompare(a.date + a.id)).slice(0, 5);
+    if (!items.length) return "";
+    return `<section class="stack"><h3>Recent entries</h3>${items.map(e => e.kind === "session"
+      ? `<div class="entry"><div class="entry-head"><span class="date">${CM.fmtDate(e.date)} · ${esc(e.type || "Session")}</span><span class="tag">Session</span></div>
+         <span>Session rated ${e.rating}/5${e.note ? " — " + esc(e.note) : ""}</span></div>`
+      : `<div class="entry"><div class="entry-head"><span class="date">${CM.fmtDate(e.date)}${e.context ? " · " + esc(e.context) : ""}</span><span class="tag pr">Pressure</span></div>
+         <span class="quote">“${esc(e.thought)}”</span><span class="hint">${esc(e.situation || "")}${e.result ? " → " + esc(e.result) : ""}</span></div>`
+    ).join("")}</section>`;
+  }
+
+  function comingUp() {
+    return `<section class="stack"><h3>Coming up</h3><div class="weeks">${WEEKS.slice(1).map(w =>
+      `<div class="wk"><b>Week ${w.n}</b><span>${esc(w.title)}</span></div>`).join("")}</div></section>`;
+  }
+
+  function render() {
+    const first = (S.profile.name || U.name || "").split(" ")[0];
+    const onboarded = !!S.profile.onboarded;
+    document.getElementById("view").innerHTML = `
+      <div class="stack" style="gap:6px">
+        <h1>${first ? "Hi " + esc(first) : "Welcome"}</h1>
+        <p class="lede">${onboarded ? `Week ${week} of 8.${week > buildWeek ? " Your next week's content is on its way." : ""}` : "Start by setting up your profile. It takes about 10 minutes."}</p>
+      </div>
+      ${!onboarded ? `<a class="btn primary block" href="module1.html#onboarding">Set up my profile</a>` : ""}
+      ${videoBlock()}
+      ${taskList()}
+      <div class="row">
+        <a class="btn ghost small" href="session.html">+ Session</a>
+        <a class="btn ghost small" href="pressure.html">+ Pressure climb</a>
+      </div>
+      ${recent()}
+      ${comingUp()}
+      <section class="banner"><strong>If nerves ever feel like too much,</strong> or start showing up away from climbing, talk to someone you trust. ${esc(CONFIG.HELP_CONTACT)}</section>
+      <section class="row" style="justify-content:space-between">
+        <span class="hint">Signed in as ${esc(U.name)}${U.dev ? " (developer mode)" : ""}</span>
+        <span class="row">
+          <button class="btn ghost small" type="button" data-act="signout">Sign out</button>
+          ${U.dev ? `<button class="btn ghost small" type="button" data-act="reset">Reset test data</button>` : ""}
+        </span>
+      </section>
+      <div id="reset-confirm"></div>`;
+  }
+
+  document.addEventListener("click", ev => {
+    const a = ev.target.closest("[data-act]"); if (!a) return;
+    const act = a.dataset.act;
+    if (act === "watched") { S.progress["w" + shownWeek + "Video"] = new Date().toISOString(); CM.save(); render(); }
+    if (act === "signout") CM.signOut();
+    if (act === "reset") {
+      document.getElementById("reset-confirm").innerHTML = `<div class="card"><p>Delete all test data on this phone? Rows already sent to the sheet stay there.</p>
+        <div class="row"><button class="btn primary small" type="button" data-act="reset-yes">Delete</button><button class="btn ghost small" type="button" data-act="reset-no">Cancel</button></div></div>`;
+    }
+    if (act === "reset-yes") CM.resetAll();
+    if (act === "reset-no") document.getElementById("reset-confirm").innerHTML = "";
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>
